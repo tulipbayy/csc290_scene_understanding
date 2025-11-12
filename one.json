@@ -1,0 +1,29 @@
+{
+    "vertex-data":
+    [
+        {"id":"A", "coords":[156, 1189], "kind-list":["B",1,"C",2,"E",6,"B"]},
+        {"id":"B", "coords":[720, 1189], "kind-list":["C",1,"A",6,"C"      ]}, 
+        {"id":"C", "coords":[718, 974],  "kind-list":["K",2,"A",1,"B",6,"C"]},  
+        {"id":"D", "coords":[351, 946],  "kind-list":["H",4,"E",2,"K",3,"H"]},  
+        {"id":"E", "coords":[222, 875],  "kind-list":["F",6,"A",2,"D",4,"F"]},  
+        {"id":"F", "coords":[101, 808],  "kind-list":["E",4,"G",6,"E"      ]},  
+        {"id":"G", "coords":[189, 176],  "kind-list":["F",4,"H",5,"I",6,"F"]},  
+        {"id":"H", "coords":[314, 487],  "kind-list":["G",4,"D",3,"I",5,"G"]},  
+        {"id":"I", "coords":[489, 359],  "kind-list":["J",6,"G",5,"H",3,"J"]},  
+        {"id":"J", "coords":[677, 811],  "kind-list":["I",3,"K",6,"I"      ]},  
+        {"id":"K", "coords":[540, 874],  "kind-list":["J",3,"D",2,"C",6,"J"]} 
+    ],
+    "background":6
+}
+
+
+
+
+
+
+
+
+
+
+
+

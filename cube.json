@@ -1,0 +1,14 @@
+{
+    "vertex-data":
+    [
+        {"id":"A", "coords":[1,1], "kind-list":["B",4,"G",1,"B"]},
+        {"id":"B", "coords":[1,5], "kind-list":["C", 4, "A", 1, "E", 2, "C"]},
+        {"id":"C", "coords":[3,7], "kind-list":["B", 2, "D", 4, "B"]},
+        {"id":"D", "coords":[8,7], "kind-list":["C", 2, "E", 3, "F", 4, "C"]},
+        {"id":"E", "coords":[6,5], "kind-list":["D", 2, "B", 1, "G", 3, "D"]},
+        {"id":"F", "coords":[8,3], "kind-list":["D", 3, "G", 4, "D"]},
+        {"id":"G", "coords":[6,1], "kind-list":["F", 3, "E", 1, "A", 4, "F"]}
+    ]
+    "background":4
+}
+  
