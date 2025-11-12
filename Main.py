@@ -98,3 +98,27 @@ def run_GLOBAL(links, background):
                 print(f"[GLOBAL] merged {a}, {b}")
                 changed = True
     return nuclei
+
+def run_SINGLEBODY(links, nuclei, background):
+    link_map = defaultdict(set)
+    for a, b in links:
+        if background not in (a, b):
+            link_map[a].add(b)
+            link_map[b].add(a)
+
+    changed = True
+    while changed:
+        changed = False
+        for n in list(nuclei):
+            if len(n) == 1:
+                region = next(iter(n))
+                if len(link_map[region]) == 1:
+                    other = next(iter(link_map[region]))
+                    if merge_nuclei(nuclei, region, other):
+                        print(f"[SINGLEBODY] merged {region} with {other}")
+                        changed = True
+                        break
+    return nuclei
+
+def extract_bodies(nuclei):
+    return [sorted(list(n)) for n in nuclei]
