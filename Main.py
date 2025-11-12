@@ -63,3 +63,7 @@ def generate_links(vertices, classifications):
             add_link(links, regions[0], regions[1])
     return links
 
+def add_link(links, r1, r2):
+    if r1 != r2:
+        links.add(tuple(sorted((r1, r2))))
+
