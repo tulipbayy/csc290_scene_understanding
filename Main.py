@@ -129,3 +129,8 @@ def extract_bodies(nuclei):
         bodies.append(n_list)       # add the sorted list to the main list
 
     return bodies                   # return all bodies as a list of lists
+
+def print_bodies(bodies):
+    print("\n===== FINAL BODIES =====")
+    for i, body in enumerate(bodies, 1):
+        print(f"(BODY {i}: {body})")
