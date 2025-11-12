@@ -121,4 +121,11 @@ def run_SINGLEBODY(links, nuclei, background):
     return nuclei
 
 def extract_bodies(nuclei):
-    return [sorted(list(n)) for n in nuclei]
+    bodies = []                     # make an empty list to store all bodies
+
+    for n in nuclei:                # go through each nucleus (set of regions)
+        n_list = list(n)            # turn the set into a list
+        n_list.sort()               # sort the list of region numbers
+        bodies.append(n_list)       # add the sorted list to the main list
+
+    return bodies                   # return all bodies as a list of lists
