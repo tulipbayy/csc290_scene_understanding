@@ -134,3 +134,19 @@ def print_bodies(bodies):
     print("\n===== FINAL BODIES =====")
     for i, body in enumerate(bodies, 1):
         print(f"(BODY {i}: {body})")
+
+def main():
+    vertices, background = load_scene("cube.json")
+    connected = get_connected_vertices(vertices)
+    angles = get_edge_angles(vertices, connected)
+    classifications = {v: classify_vertex(v, angles) for v in vertices}
+    links = generate_links(vertices, classifications)
+
+    nuclei_global = run_GLOBAL(links, background)
+    nuclei_final = run_SINGLEBODY(links, nuclei_global, background)
+
+    bodies = extract_bodies(nuclei_final)
+    print_bodies(bodies)
+
+if __name__ == "__main__":
+    main()
