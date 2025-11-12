@@ -36,3 +36,14 @@ def get_edge_angles(vertices, connected):
         all_angles[v1] = angles
     return all_angles
 
+def classify_vertex(v_id, angles):
+    if len(angles[v_id]) == 1 or len(angles[v_id]) == 2:
+        return "L"
+    elif len(angles[v_id]) == 3:
+        if any(abs(a - 180) < 5 for a in angles[v_id]):
+            return "T"
+        elif any(a > 180 for a in angles[v_id]):
+            return "ARROW"
+        else:
+            return "FORK"
+    return "MULTI"
