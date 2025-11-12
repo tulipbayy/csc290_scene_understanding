@@ -136,15 +136,27 @@ def print_bodies(bodies):
         print(f"(BODY {i}: {body})")
 
 def main():
-    vertices, background = load_scene("cube.json")
+    # 1. Load the scene file (make sure cube.json is in the same folder)
+    vertices, regions, kind_lists = load_scene("cube.json")
+
+    # 2. Set the background region manually (for cube.json, it’s usually 4)
+    background = 4
+
+    # 3. Compute all connections, angles, and classifications
     connected = get_connected_vertices(vertices)
     angles = get_edge_angles(vertices, connected)
     classifications = {v: classify_vertex(v, angles) for v in vertices}
+
+    # 4. Generate region links
     links = generate_links(vertices, classifications)
 
+    # 5. Run GLOBAL (strong evidence merging)
     nuclei_global = run_GLOBAL(links, background)
+
+    # 6. Run SINGLEBODY (weaker evidence merging)
     nuclei_final = run_SINGLEBODY(links, nuclei_global, background)
 
+    # 7. Extract and print final bodies
     bodies = extract_bodies(nuclei_final)
     print_bodies(bodies)
 
