@@ -1,5 +1,7 @@
 import json
 import math
+from collections import defaultdict
+
 def load_scene(filename):
     # Open and read the JSON file
     with open(filename, 'r') as f:
@@ -80,3 +82,19 @@ def merge_nuclei(nuclei, a, b):
                     nuclei.remove(n2)
                     return True
     return False
+
+def run_GLOBAL(links, background):
+    link_counts = defaultdict(int)
+    for a, b in links:
+        if background not in (a, b):
+            link_counts[tuple(sorted((a, b)))] += 1
+
+    nuclei = initialize_nuclei(links, background)
+    changed = True
+    while changed:
+        changed = False
+        for (a, b), n in link_counts.items():
+            if n >= 2 and merge_nuclei(nuclei, a, b):
+                print(f"[GLOBAL] merged {a}, {b}")
+                changed = True
+    return nuclei
