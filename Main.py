@@ -71,3 +71,12 @@ def initialize_nuclei(links, background):
     regions = set(sum(links, ()))
     return [{r} for r in regions if r != background]
 
+def merge_nuclei(nuclei, a, b):
+    for n1 in nuclei:
+        if a in n1:
+            for n2 in nuclei:
+                if b in n2 and n1 != n2:
+                    n1.update(n2)
+                    nuclei.remove(n2)
+                    return True
+    return False
