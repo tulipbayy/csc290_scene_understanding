@@ -12,3 +12,9 @@ def load_scene(filename):
     
     # Return the information for later use
     return vertices, regions, kind_lists
+
+def get_connected_vertices(vertices):
+    connected = {}
+    for vid, v in vertices.items():
+        connected[vid] = [x for x in v["kind_list"] if isinstance(x, str)]
+    return connected
