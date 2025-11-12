@@ -67,3 +67,7 @@ def add_link(links, r1, r2):
     if r1 != r2:
         links.add(tuple(sorted((r1, r2))))
 
+def initialize_nuclei(links, background):
+    regions = set(sum(links, ()))
+    return [{r} for r in regions if r != background]
+
