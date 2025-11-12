@@ -47,3 +47,19 @@ def classify_vertex(v_id, angles):
         else:
             return "FORK"
     return "MULTI"
+
+def generate_links(vertices, classifications):
+    links = set()
+    for v_id, v in vertices.items():
+        kind_list = v["kind_list"]
+        regions = [x for x in kind_list if isinstance(x, int)]
+        vtype = classifications[v_id]
+
+        if vtype == "FORK":
+            for i in range(len(regions)):
+                for j in range(i + 1, len(regions)):
+                    add_link(links, regions[i], regions[j])
+        elif vtype == "ARROW" and len(regions) >= 2:
+            add_link(links, regions[0], regions[1])
+    return links
+
