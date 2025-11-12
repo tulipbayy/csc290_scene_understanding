@@ -18,3 +18,10 @@ def get_connected_vertices(vertices):
     for vid, v in vertices.items():
         connected[vid] = [x for x in v["kind_list"] if isinstance(x, str)]
     return connected
+
+def compute_angle(v1, v2, v3, vertices):
+    (x1, y1), (x2, y2), (x3, y3) = vertices[v1]["coords"], vertices[v2]["coords"], vertices[v3]["coords"]
+    ang1 = math.atan2(y2 - y1, x2 - x1)
+    ang2 = math.atan2(y3 - y1, x3 - x1)
+    angle = math.degrees((ang2 - ang1) % (2 * math.pi))
+    return angle
