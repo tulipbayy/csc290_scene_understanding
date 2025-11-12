@@ -25,3 +25,14 @@ def compute_angle(v1, v2, v3, vertices):
     ang2 = math.atan2(y3 - y1, x3 - x1)
     angle = math.degrees((ang2 - ang1) % (2 * math.pi))
     return angle
+
+def get_edge_angles(vertices, connected):
+    all_angles = {}
+    for v1, neighbors in connected.items():
+        angles = []
+        for i in range(len(neighbors)):
+            for j in range(i + 1, len(neighbors)):
+                angles.append(compute_angle(v1, neighbors[i], neighbors[j], vertices))
+        all_angles[v1] = angles
+    return all_angles
+
