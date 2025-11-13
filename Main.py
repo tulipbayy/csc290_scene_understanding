@@ -156,7 +156,7 @@ def run_GLOBAL(links, background):
     while changed:
         changed = False
         for (a, b), n in link_counts.items():
-            if n >= 2 and merge_nuclei(nuclei, a, b):
+            if n >= 1 and merge_nuclei(nuclei, a, b):
                 print(f"[GLOBAL] merged {a}, {b}")
                 changed = True
     return nuclei
