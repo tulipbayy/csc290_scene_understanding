@@ -101,12 +101,12 @@ def classify_vertex(v_id, angles):
 # ---------------------------
 def add_link(links, r1, r2):
     if r1 != r2:
-        links.add(tuple(sorted((r1, r2))))
+        links.append((r1,r2))
 
 
 def generate_links(vertices, classifications):
     """Create region-to-region links based on vertex type."""
-    links = set()
+    links = []
     for v_id, v in vertices.items():
         regions = [x for x in v["kind_list"] if isinstance(x, int)]
         vtype = classifications[v_id]
@@ -156,7 +156,7 @@ def run_GLOBAL(links, background):
     while changed:
         changed = False
         for (a, b), n in link_counts.items():
-            if n >= 1 and merge_nuclei(nuclei, a, b):
+            if n >= 2 and merge_nuclei(nuclei, a, b):
                 print(f"[GLOBAL] merged {a}, {b}")
                 changed = True
     return nuclei
@@ -211,7 +211,7 @@ def main():
     if len(sys.argv) > 1:
         filename = sys.argv[1]
     else:
-        filename = "cube.json"
+        filename = "one.json"
 
     print(f"\n>>> Loading scene: {filename}")
     vertices, background = load_scene(filename)
