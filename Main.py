@@ -3,11 +3,14 @@ import math
 import sys
 from collections import defaultdict
 
+
 # ---------------------------
-# LOAD SCENE
+# Load scene
 # ---------------------------
 def load_scene(filename):
-    """Load the JSON scene file with vertex-data and background."""
+    """
+    Load the scene JSON file.
+    """
     with open(filename, 'r') as f:
         data = json.load(f)
 
@@ -25,137 +28,229 @@ def load_scene(filename):
 
 
 # ---------------------------
-# CONNECTIONS
+# Geometry helpers (sector angles from KIND lists)
 # ---------------------------
-def get_connected_vertices(vertices):
-    """Extract neighbor vertices (letters) from kind-list."""
-    connected = {}
-    for vid, v in vertices.items():
-        connected[vid] = [x for x in v["kind_list"] if isinstance(x, str)]
-    return connected
+def estimate_for_T(angle):
+    """
+    Return True if a sector angle is approximately a straight continuation (T).
+    """
+    return 175 <= angle <= 185
+
+
+def angle_between(p1, p2, p3):
+    """
+    Compute the counterclockwise angle at p2 between vectors p2->p1 and p2->p3.
+    """
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3 = p3
+
+    deg1 = (360 + math.degrees(math.atan2(x1 - x2, y1 - y2))) % 360
+    deg2 = (360 + math.degrees(math.atan2(x3 - x2, y3 - y2))) % 360
+    return deg2 - deg1 if deg1 <= deg2 else 360 - (deg1 - deg2)
+
+
+def get_sector_angles(vertices):
+    """
+    For each vertex, compute sector angles from its KIND list.
+
+    The KIND list alternates vertex and region entries and is circular, e.g.:
+        [v0, r1, v1, r2, v2, r3, v0]
+    - Each region entry sits in a "sector" bounded by the previous and next vertices.
+    - For three-neighbor vertices (common in these scenes), there are exactly three
+      sectors (and thus three sector angles).
+    - For 'L' vertices (two-neighbor), there are no sectors to analyze; we return [].
+    """
+    angles_map = {}
+
+    for v_id, v in vertices.items():
+        origin = vertices[v_id]["coords"]
+        kl = v["kind_list"]
+
+        # Collect adjacent vertex coordinates in KIND-list order.
+        # We ignore region entries and the final repeated start vertex.
+        adj_coors = [origin]
+        for i in range(0, len(kl) - 1, 2):
+            adj_vertex = kl[i]
+            adj_coors.append(vertices[adj_vertex]["coords"])
+
+        # L case: only two neighbors -> no sector analysis
+        if len(adj_coors) == 3:
+            angles_map[v_id] = []
+            continue
+
+        # Three neighbors (length 4 list including origin) -> three sectors.
+        # The order matches the working reference so the Arrow mapping is correct.
+        angle_1 = angle_between(adj_coors[1], adj_coors[0], adj_coors[2])
+        angle_2 = angle_between(adj_coors[2], adj_coors[0], adj_coors[3])
+        angle_3 = angle_between(adj_coors[3], adj_coors[0], adj_coors[1])
+
+        # Robustness: ensure they sum to ~360. If not, try alternate wrap order.
+        if round(angle_1 + angle_2 + angle_3) != 360:
+            angle_1 = angle_between(adj_coors[2], adj_coors[0], adj_coors[1])
+            angle_2 = angle_between(adj_coors[3], adj_coors[0], adj_coors[2])
+            angle_3 = angle_between(adj_coors[1], adj_coors[0], adj_coors[3])
+
+        assert round(angle_1 + angle_2 + angle_3) == 360, f"Angles do not sum to 360 at vertex {v_id}"
+
+        angles_map[v_id] = [angle_1, angle_2, angle_3]
+
+    return angles_map
 
 
 # ---------------------------
-# ANGLE CALCULATION
+# Classification
 # ---------------------------
-def compute_angle(v1, v2, v3, vertices):
-    """Return the smaller interior angle (0–180°) at v1 between v2 and v3."""
-    (x1, y1), (x2, y2), (x3, y3) = (
-        vertices[v1]["coords"],
-        vertices[v2]["coords"],
-        vertices[v3]["coords"],
-    )
+def classify_vertex(v_id, angles_map):
+    """
+    Classify a vertex using its sector angles.
 
-    v12 = (x2 - x1, y2 - y1)
-    v13 = (x3 - x1, y3 - y1)
-
-    dot = v12[0]*v13[0] + v12[1]*v13[1]
-    mag1 = math.hypot(*v12)
-    mag2 = math.hypot(*v13)
-    if mag1 == 0 or mag2 == 0:
-        return 0.0
-
-    cos_theta = dot / (mag1 * mag2)
-    cos_theta = max(-1, min(1, cos_theta))  # avoid rounding errors
-    return math.degrees(math.acos(cos_theta))
-
-
-def get_edge_angles(vertices, connected):
-    """Compute all pairwise angles at each vertex."""
-    all_angles = {}
-    for v1, neighbors in connected.items():
-        angles = []
-        for i in range(len(neighbors)):
-            for j in range(i + 1, len(neighbors)):
-                ang = compute_angle(v1, neighbors[i], neighbors[j], vertices)
-                angles.append(round(ang, 2))
-        all_angles[v1] = angles
-    return all_angles
-
-
-# ---------------------------
-# CLASSIFY VERTICES
-# ---------------------------
-def classify_vertex(v_id, angles):
-    """Determine vertex type based on angle geometry."""
-    a = angles[v_id]
-    if len(a) <= 1:
+    Rules:
+    - L: len(angles) == 0 (only two neighbors)
+    - T: any sector approximately 180 degrees
+    - FORK: all three sectors < 180
+    - ARROW: any sector > 180
+    - MULTI: fallback (not expected for these inputs)
+    """
+    a = angles_map.get(v_id, [])
+    if len(a) == 0:
         return "L"
-    elif len(a) == 2:
-        if any(abs(x - 180) < 15 for x in a):
-            return "T"
-        else:
-            return "L"
-    elif len(a) >= 3:
-        if any(x > 150 for x in a):
-            return "ARROW"
-        elif all(x < 150 for x in a):
-            return "FORK"
-        else:
-            return "MULTI"
+    if any(estimate_for_T(x) for x in a):
+        return "T"
+    if all(x < 180 for x in a):
+        return "FORK"
+    if any(x > 180 for x in a):
+        return "ARROW"
     return "MULTI"
 
 
 # ---------------------------
-# REGION LINKING
+# Link generation
 # ---------------------------
 def add_link(links, r1, r2):
+    """
+    Append a region-to-region link, ignoring self-links.
+    """
     if r1 != r2:
-        links.append((r1,r2))
+        links.append((r1, r2))
 
 
-def generate_links(vertices, classifications):
-    """Create region-to-region links based on vertex type."""
+def generate_links(vertices, classifications, angles_map):
+    """
+    Create strong links between regions based on vertex classification and sector angles.
+    """
     links = []
-    for v_id, v in vertices.items():
-        regions = [x for x in v["kind_list"] if isinstance(x, int)]
-        vtype = classifications[v_id]
 
+    for v_id, v in vertices.items():
+        vtype = classifications[v_id]
+        kl = v["kind_list"]
+
+        # Collect the regions at this vertex in KIND-list order: [r1, r2, r3]
+        regions = []
+        for i in range(1, len(kl) - 1, 2):
+            regions.append(kl[i])
+
+        # Need at least two regions to form any link
         if len(regions) < 2:
             continue
 
-        if vtype == "FORK":
-            for i in range(len(regions)):
-                for j in range(i + 1, len(regions)):
-                    add_link(links, regions[i], regions[j])
-                    print(f"[FORK] {v_id}: linked {regions[i]} - {regions[j]}")
-        elif vtype == "ARROW":
+        if vtype == "FORK" and len(regions) == 3:
+            # One link for each pair
             add_link(links, regions[0], regions[1])
-            print(f"[ARROW] {v_id}: linked {regions[0]} - {regions[1]}")
+            print(f"[FORK] {v_id}: linked {regions[0]} - {regions[1]}")
+            add_link(links, regions[1], regions[2])
+            print(f"[FORK] {v_id}: linked {regions[1]} - {regions[2]}")
+            add_link(links, regions[0], regions[2])
+            print(f"[FORK] {v_id}: linked {regions[0]} - {regions[2]}")
+
+        elif vtype == "ARROW":
+            a = angles_map.get(v_id, [])
+            if len(a) == 3 and len(regions) == 3:
+                # Map the >180 sector to the two regions that should be linked
+                if a[0] > 180:
+                    add_link(links, regions[1], regions[2])
+                    print(f"[ARROW] {v_id}: linked {regions[1]} - {regions[2]}")
+                elif a[1] > 180:
+                    add_link(links, regions[0], regions[2])
+                    print(f"[ARROW] {v_id}: linked {regions[0]} - {regions[2]}")
+                else:
+                    add_link(links, regions[0], regions[1])
+                    print(f"[ARROW] {v_id}: linked {regions[0]} - {regions[1]}")
+            elif len(regions) >= 2:
+                # Fallback: if somehow not a 3-region vertex, link first two
+                add_link(links, regions[0], regions[1])
+                print(f"[ARROW] {v_id}: linked {regions[0]} - {regions[1]}")
+
+        # L, T, MULTI -> no links
+
     return links
 
 
 # ---------------------------
-# MERGING FUNCTIONS
+# Grouping (GLOBAL and SINGLEBODY)
 # ---------------------------
-def initialize_nuclei(links, background):
-    regions = set(sum(links, ()))
-    return [{r} for r in regions if r != background]
+def collect_all_regions(vertices):
+    """
+    Gather every region id present in any vertex KIND list.
+
+    This ensures each (non-background) region starts in its own nucleus,
+    even if it didn't participate in any link.
+    """
+    regions = set()
+    for v in vertices.values():
+        for item in v["kind_list"]:
+            if isinstance(item, int):
+                regions.add(item)
+    return regions
+
+
+def initialize_nuclei_all_regions(vertices, background):
+    """
+    Initialize the nuclei list: one singleton nucleus per region,
+    excluding the background region.
+    """
+    regions = collect_all_regions(vertices)
+    return [{r} for r in sorted(regions) if r != background]
 
 
 def merge_nuclei(nuclei, a, b):
+    """
+    Merge the two nuclei that contain regions a and b, if they are different.
+
+    Returns:
+        True if a merge occurred, else False.
+    """
     for n1 in nuclei:
         if a in n1:
             for n2 in nuclei:
-                if b in n2 and n1 != n2:
+                if b in n2 and n1 is not n2:
                     n1.update(n2)
                     nuclei.remove(n2)
                     return True
     return False
 
 
-def run_GLOBAL(links, background):
-    """Strong merging step."""
+def run_GLOBAL(links, vertices, background):
+    """
+    GLOBAL (strong-evidence) grouping:
+    - Count links between region pairs (ignore background).
+    - Initialize one nucleus per non-background region.
+    - Repeatedly merge any two nuclei that have 2 or more links between them.
+    """
+    # Count links per unordered region pair, excluding background
     link_counts = defaultdict(int)
     for a, b in links:
         if background not in (a, b):
             link_counts[tuple(sorted((a, b)))] += 1
 
-    nuclei = initialize_nuclei(links, background)
+    # Start each region in its own nucleus
+    nuclei = initialize_nuclei_all_regions(vertices, background)
+
+    # Merge while possible
     changed = True
     while changed:
         changed = False
-        for (a, b), n in link_counts.items():
+        for (a, b), n in list(link_counts.items()):
             if n >= 2 and merge_nuclei(nuclei, a, b):
                 print(f"[GLOBAL] merged {a}, {b}")
                 changed = True
@@ -163,7 +258,12 @@ def run_GLOBAL(links, background):
 
 
 def run_SINGLEBODY(links, nuclei, background):
-    """Weaker merging step."""
+    """
+    SINGLEBODY (weaker-evidence) grouping:
+    If a single-region nucleus has exactly one neighbor nucleus via any links,
+    and that neighbor nucleus has multiple regions, merge t
+    """
+    # Build an undirected adjacency map of regions (ignoring background)
     link_map = defaultdict(set)
     for a, b in links:
         if background not in (a, b):
@@ -176,6 +276,7 @@ def run_SINGLEBODY(links, nuclei, background):
         for n in list(nuclei):
             if len(n) == 1:
                 region = next(iter(n))
+                # exactly one neighbor region in the graph
                 if len(link_map[region]) == 1:
                     other = next(iter(link_map[region]))
                     if merge_nuclei(nuclei, region, other):
@@ -186,9 +287,12 @@ def run_SINGLEBODY(links, nuclei, background):
 
 
 # ---------------------------
-# BODY EXTRACTION
+# Output helpers
 # ---------------------------
 def extract_bodies(nuclei):
+    """
+    Convert nuclei (sets of regions) into a sorted list of region lists for printing.
+    """
     bodies = []
     for n in nuclei:
         bodies.append(sorted(list(n)))
@@ -196,6 +300,9 @@ def extract_bodies(nuclei):
 
 
 def print_bodies(bodies):
+    """
+    Pretty-print the final bodies.
+    """
     print("\n===== FINAL BODIES =====")
     if not bodies:
         print("(no bodies detected)")
@@ -204,10 +311,16 @@ def print_bodies(bodies):
 
 
 # ---------------------------
-# MAIN
+# Main
 # ---------------------------
 def main():
-    # Allow command-line argument: python3 scene_understanding.py one.json
+    """
+    Entry point. Run as:
+        python3 Main.py cube.json
+    or
+        python3 Main.py one.json
+    If no filename provided, defaults to one.json.
+    """
     if len(sys.argv) > 1:
         filename = sys.argv[1]
     else:
@@ -216,19 +329,23 @@ def main():
     print(f"\n>>> Loading scene: {filename}")
     vertices, background = load_scene(filename)
 
-    connected = get_connected_vertices(vertices)
-    angles = get_edge_angles(vertices, connected)
-    classifications = {v: classify_vertex(v, angles) for v in vertices}
+    # Compute sector angles from KIND lists, then classify vertices
+    angles_map = get_sector_angles(vertices)
+    classifications = {v: classify_vertex(v, angles_map) for v in vertices}
 
     print("\nVertex classifications:")
     for v, t in classifications.items():
         print(f"  {v}: {t}")
 
-    links = generate_links(vertices, classifications)
+    # Generate strong links based on classifications
+    links = generate_links(vertices, classifications, angles_map)
     print("\nGenerated links:", links)
 
-    nuclei_global = run_GLOBAL(links, background)
+    # GLOBAL + SINGLEBODY grouping
+    nuclei_global = run_GLOBAL(links, vertices, background)
     nuclei_final = run_SINGLEBODY(links, nuclei_global, background)
+
+    # Output bodies
     bodies = extract_bodies(nuclei_final)
     print_bodies(bodies)
 
